@@ -1,0 +1,168 @@
+﻿/* style.css */
+
+/* ---------- Body & Fonts ---------- */
+body {
+    margin: 0;
+    padding: 0;
+    height: 100vh; /* full viewport height */
+    display: flex;
+    justify-content: center; /* horizontal center */
+    align-items: center; /* vertical center */
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: #fbfbfb;
+}
+
+/* Container for content */
+.container {
+    display: flex;
+    flex-direction: column;
+    align-items: center; /* center children horizontally */
+    width: 100%;
+    max-width: 480px; /* optional */
+    margin: 0 auto; /* center container in viewport */
+}
+/* ---------- Input Row & Boxes ---------- */
+.input-row {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 10px;
+    justify-content: center; /* add this line */
+}
+
+.letter-box {
+    width: 56px;
+    height: 56px;
+    font-size: 26px;
+    text-align: center;
+    border-radius: 8px;
+    border: 2px solid #ddd;
+    background: #fff;
+    outline: none;
+    caret-color: transparent;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+    .letter-box:focus {
+        border-color: #a3c0ff;
+        box-shadow: 0 0 0 3px rgba(0, 120, 215, 0.08);
+    }
+
+/* Colors for Wordle states */
+.green {
+    background: #6aaa64;
+    color: #fff;
+    border-color: #6aaa64;
+}
+
+.yellow {
+    background: #c9b458;
+    color: #fff;
+    border-color: #c9b458;
+}
+
+.grey {
+    background: #787c7e;
+    color: #fff;
+    border-color: #787c7e;
+}
+
+/* ---------- Controls ---------- */
+.controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: 10px;
+}
+
+button {
+    padding: 8px 12px;
+    font-size: 14px;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+    cursor: pointer;
+    background: #fff;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+    button:hover {
+        background: #f0f0f0;
+    }
+
+    button.secondary {
+        background: #f6f6f6;
+    }
+
+/* ---------- Status / Meta ---------- */
+#status, .meta, .small {
+    font-size: 13px;
+    color: #555;
+}
+
+/* ---------- Wrong letters pills ---------- */
+#wrongRow {
+    margin-top: 12px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 8px;
+    border-radius: 999px;
+    background: #eee;
+    margin: 2px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s;
+}
+
+    .pill.grey {
+        background: #787c7e;
+        color: #fff;
+    }
+
+/* ---------- Results ---------- */
+.results {
+    margin-top: 16px;
+}
+
+.result-list {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+
+.word-pill {
+    padding: 6px 10px;
+    border-radius: 6px;
+    background: #fff;
+    border: 1px solid #e4e4e4;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+    .word-pill:hover {
+        background: #f0f0f0;
+        border-color: #ccc;
+    }
+
+/* ---------- Small input ---------- */
+label.add-label {
+    font-size: 13px;
+    color: #444;
+    margin-right: 6px;
+}
+
+input[type="text"].small-input {
+    padding: 6px 8px;
+    font-size: 14px;
+    border-radius: 6px;
+    border: 1px solid #ddd;
+    width: 140px;
+}

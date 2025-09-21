@@ -1,0 +1,294 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>Wordle Helper / Solver</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: auto;
+        }
+
+        .input-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 50px);
+            grid-gap: 5px;
+        }
+
+        .letter-box {
+            width: 50px;
+            height: 50px;
+            font-size: 1.2em;
+            text-align: center;
+            text-transform: uppercase;
+            border: 1px solid #888;
+            cursor: pointer;
+        }
+
+        .controls {
+            margin: 10px 0;
+        }
+
+        .pill {
+            display: inline-block;
+            padding: 5px 8px;
+            margin: 2px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .grey {
+            background-color: #787c7e;
+            color: white;
+        }
+
+        .yellow {
+            background-color: #c9b458;
+            color: white;
+        }
+
+        .green {
+            background-color: #6aaa64;
+            color: white;
+        }
+
+        .white {
+            background-color: white;
+            color: black;
+        }
+
+        .word-pill {
+            display: inline-block;
+            padding: 5px 8px;
+            margin: 2px;
+            border-radius: 4px;
+            background: #eee;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Wordle Helper — 5x6 Solver</h1>
+
+        <div class="input-grid" id="inputGrid"></div>
+
+        <div class="controls">
+            <button id="findBtn">Find words</button>
+            <button id="clearBtn">Clear</button>
+            <div style="margin-top:5px;">
+                <label>Add wrong letters:</label>
+                <input id="wrongInput" placeholder="e.g. q w x" />
+                <button id="addWrongBtn">Add</button>
+            </div>
+            <div id="status">Loading dictionary...</div>
+        </div>
+
+        <div id="wrongRow" title="Click a letter to remove it"></div>
+        <div class="results">
+            <div id="matchMeta">Enter letters and select colours — results appear below.</div>
+            <div id="results"></div>
+        </div>
+    </div>
+
+    <script>
+        const WORDS_JSON_PATH = "words.json";
+        const FALLBACK_WORDS = ["crane", "slate", "trace", "plant", "grace", "apple", "stone", "flame", "about", "above"];
+        let words = [];
+        let wrongSet = new Set();
+        const ROWS = 6, COLS = 5;
+        const gridEl = document.getElementById("inputGrid");
+        const resultsEl = document.getElementById("results");
+        const matchMeta = document.getElementById("matchMeta");
+        const wrongRow = document.getElementById("wrongRow");
+        const statusEl = document.getElementById("status");
+        const findBtn = document.getElementById("findBtn");
+        const clearBtn = document.getElementById("clearBtn");
+        const wrongInput = document.getElementById("wrongInput");
+        const addWrongBtn = document.getElementById("addWrongBtn");
+
+        let boxes = [];
+
+        // Build 5x6 grid
+        for (let r = 0; r < ROWS; r++) {
+            for (let c = 0; c < COLS; c++) {
+                const box = document.createElement("input");
+                box.maxLength = 1;
+                box.className = "letter-box white";
+                box.dataset.row = r;
+                box.dataset.col = c;
+                box.autocomplete = "off";
+                gridEl.appendChild(box);
+                boxes.push(box);
+            }
+        }
+
+        const COLORS = ["white", "grey", "yellow", "green"];
+        function cycleColor(box, dir = 1) {
+            let idx = COLORS.indexOf(box.classList.contains("green") ? "green" : box.classList.contains("yellow") ? "yellow" : box.classList.contains("grey") ? "grey" : "white");
+            idx = (idx + dir + COLORS.length) % COLORS.length;
+            box.classList.remove("white", "grey", "yellow", "green");
+            box.classList.add(COLORS[idx]);
+            if (!box.value) box.classList.add("white");
+        }
+
+        clearBtn.addEventListener("click", () => {
+            // Reset all boxes
+            boxes.forEach(box => {
+                box.value = "";
+                box.classList.remove("grey", "yellow", "green");
+                box.classList.add("white");
+            });
+
+            // Reset wrong letters
+            wrongSet.clear();
+            updateWrongRow();
+
+            // Reset results and meta
+            resultsEl.innerHTML = "";
+            matchMeta.textContent = "Enter letters and select colours — results appear below.";
+
+            // Reset row and column focus
+            currentRow = 0;
+            currentCol = 0;
+            boxes[0].focus();
+        });
+        async function loadWords() {
+            try {
+                const res = await fetch(WORDS_JSON_PATH);
+                if (!res.ok) throw new Error(res.status);
+                const data = await res.json();
+                words = data.map(w => w.toLowerCase()).filter(w => w.length === 5 && /^[a-z]+$/.test(w));
+                statusEl.textContent = `Loaded ${words.length} words.`;
+            } catch (e) {
+                console.warn(e);
+                words = FALLBACK_WORDS.slice();
+                statusEl.textContent = `Using fallback word list (${words.length} items).`;
+            }
+            filterAndRender();
+        }
+
+        function updateWrongRow() {
+            wrongRow.innerHTML = "";
+            Array.from(wrongSet).sort().forEach(l => {
+                const pill = document.createElement("div");
+                pill.textContent = l;
+                pill.className = "pill grey";
+                pill.addEventListener("click", () => { wrongSet.delete(l); updateWrongRow(); filterAndRender(); });
+                wrongRow.appendChild(pill);
+            });
+        }
+
+        function filterAndRender() {
+            if (!words.length) return;
+            const greens = Array(COLS).fill(null);
+            const yellows = [];
+            const greysFromBoxes = new Set();
+
+            boxes.forEach((b, i) => {
+                const val = b.value.toLowerCase();
+                if (!val) return;
+                if (b.classList.contains("green")) greens[i % COLS] = val;
+                else if (b.classList.contains("yellow")) yellows.push({ letter: val, pos: i % COLS });
+                else if (b.classList.contains("grey")) greysFromBoxes.add(val);
+            });
+
+            const greysAll = new Set([...greysFromBoxes, ...wrongSet]);
+            const presentCounts = {};
+            boxes.forEach(b => {
+                const val = b.value.toLowerCase();
+                if (!val) return;
+                if (b.classList.contains("green") || b.classList.contains("yellow")) {
+                    presentCounts[val] = (presentCounts[val] || 0) + 1;
+                }
+            });
+            const presentLetters = new Set(Object.keys(presentCounts));
+            const effectiveGreys = new Set([...greysAll].filter(l => !presentLetters.has(l)));
+
+            const candidates = words.filter(w => {
+                if (w.length !== 5) return false;
+                for (let i = 0; i < 5; i++) { if (greens[i] && w[i] !== greens[i]) return false; }
+                for (const y of yellows) { if (w[y.pos] === y.letter || !w.includes(y.letter)) return false; }
+                for (const [l, c] of Object.entries(presentCounts)) { if ((w.match(new RegExp(l, "g")) || []).length < c) return false; }
+                for (const g of effectiveGreys) if (w.includes(g)) return false;
+                return true;
+            });
+
+            resultsEl.innerHTML = "";
+            if (!candidates.length) { matchMeta.textContent = "No matches."; return; }
+            matchMeta.textContent = `${candidates.length} possible word${candidates.length > 1 ? 's' : ''}. Click to copy.`;
+            candidates.slice(0, 500).forEach(word => {
+                const pill = document.createElement("div");
+                pill.className = "word-pill";
+                pill.textContent = word;
+                pill.addEventListener("click", () => { navigator.clipboard.writeText(word).then(() => pill.textContent = word + " ✓"); setTimeout(() => pill.textContent = word, 800); });
+                resultsEl.appendChild(pill);
+            });
+        }
+
+        boxes.forEach((box) => {
+            box.addEventListener("keydown", (e) => {
+                const r = parseInt(box.dataset.row), c = parseInt(box.dataset.col);
+
+                if (e.key === "ArrowLeft" && c > 0) { boxes[r * COLS + (c - 1)].focus(); e.preventDefault(); }
+                else if (e.key === "ArrowRight" && c < COLS - 1) { boxes[r * COLS + (c + 1)].focus(); e.preventDefault(); }
+                else if (e.key === "ArrowUp") { cycleColor(box, 1); filterAndRender(); e.preventDefault(); }
+                else if (e.key === "ArrowDown") { cycleColor(box, -1); filterAndRender(); e.preventDefault(); }
+                else if (e.key === "Backspace") {
+                    e.preventDefault();
+                    if (box.value) {
+                        box.value = "";
+                        box.classList.remove("grey", "yellow", "green");
+                        box.classList.add("white");
+                    } else if (c > 0) {
+                        const prevBox = boxes[r * COLS + (c - 1)];
+                        prevBox.value = "";
+                        prevBox.classList.remove("grey", "yellow", "green");
+                        prevBox.classList.add("white");
+                        prevBox.focus();
+                    }
+                    filterAndRender();
+                }
+                else if (e.key === "Enter") {
+                    e.preventDefault();
+                    if (r < ROWS - 1) {
+                        boxes[(r + 1) * COLS].focus();  // move to first box of next row
+                    }
+                }
+            });
+
+            box.addEventListener("input", () => {
+                box.value = box.value.replace(/[^a-zA-Z]/g, "").toLowerCase();
+                if (!box.value) { box.classList.remove("grey", "yellow", "green"); box.classList.add("white"); }
+                filterAndRender();
+                const r = parseInt(box.dataset.row), c = parseInt(box.dataset.col);
+                if (box.value && c < COLS - 1) { boxes[r * COLS + (c + 1)].focus(); }
+            });
+
+            box.addEventListener("click", () => {
+                cycleColor(box, 1);
+                if (!box.value) { box.classList.remove("grey", "yellow", "green"); box.classList.add("white"); }
+                filterAndRender();
+            });
+        });
+
+        wrongInput.addEventListener("keydown", (e) => { if (e.key === "Enter") addWrongBtn.click(); });
+        loadWords(); updateWrongRow(); filterAndRender();
+
+        window.addEventListener("load", () => {
+            currentRow = 0;
+            currentCol = 0;
+            boxes[0].focus();
+        });
+
+    </script>
+</body>
+</html>
